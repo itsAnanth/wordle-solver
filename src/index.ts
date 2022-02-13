@@ -2,7 +2,7 @@ import fetch from 'node-fetch';
 import { createInterface } from 'readline';
 import Wordle from './Wordle';
 
-const BASE = 'https://www.powerlanguage.co.uk/wordle/';
+const BASE = 'https://www.nytimes.com/games/wordle/';
 
 console.log('Loading words...');
 fetch(BASE)
@@ -10,7 +10,7 @@ fetch(BASE)
     .then(d => fetch(BASE + d.match(/<script src="(main\..+?\.js)"/)![1]))
     .then(d => d.text())
     .then(d => {
-        const words: string[] = JSON.parse(d.match(/var La=(\[.+?\])/)![1]);
+        const words: string[] = JSON.parse(d.match(/var Ma=(\[.+?\])/)![1]);
         console.log('Successfully loaded', words.length, 'words');
         console.log('Try typing the suggested words into Wordle, then type the results into the console.');
         console.log('Type a 0 for black characters, a 1 for yellow characters, and a 2 for green characters.');
