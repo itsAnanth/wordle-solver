@@ -3,9 +3,10 @@ import { EventEmitter } from 'events';
 export default class Wordle extends EventEmitter {
     public lastSuggestion?: string;
     private knownPositions: Record<number, string> = {};
-    private knownWrongPositions: Record<number, string> = {};
+    private knownWrongPositions: Record<number, string[]> = {};
+    private knownCounts: Record<string, number> = {};
     private knownChars: string[] = [];
-    private forbiddenChars: string[] = [];
+    private knownWrong: string[] = [];
     private words: string[];
     constructor(words: string[]) {
         super();
@@ -19,13 +20,27 @@ export default class Wordle extends EventEmitter {
 
     public step(score: number[]) {
         if (score.length && score.every(x => x === 2)) return this.emit('end', 'Victory');
-        score.map((x, i) => {
-            const c = this.lastSuggestion![i];
-            if (x === 2) this.knownPositions[i] = c;
-            if (x === 1) this.knownWrongPositions[i] = c;
-            if (x > 0) this.knownChars.push(c);
-            else this.forbiddenChars.push(c);
-        });
+        if (this.lastSuggestion) {
+            score.map((x, i) => {
+                if (x === 2) this.knownPositions[i] = this.lastSuggestion![i];
+                else if (x === 1) this.knownWrongPositions[i] = [...this.knownWrongPositions[i] || [], this.lastSuggestion![i]];
+            });
+            for (const c of new Set(this.lastSuggestion)) {
+                const count = this.lastSuggestion.split('').reduce((a, b, i) => {
+                    if (b === c) a[Math.sign(score[i])]++;
+                    return a;
+                }, [0, 0]);
+                if (count[0]) {
+                    if (count[1]) {
+                        this.knownCounts[c] = count[1];
+                        continue;
+                    }
+                    this.knownWrong.push(c);
+                    continue;
+                }
+                this.knownChars.push(c);
+            }
+        }
         const guess = this.words.filter(x => this.checkWord(x))[0];
         if (!guess) this.emit('end', 'No words remaining');
         this.emit('step', this.lastSuggestion = guess);
@@ -41,8 +56,9 @@ export default class Wordle extends EventEmitter {
 
     private checkWord(word: string) {
         return Object.entries(this.knownPositions).every(([i, c]) => word[+i] === c)
-            && Object.entries(this.knownWrongPositions).every(([i, c]) => word[+i] !== c)
-            && this.knownChars.every(c => word.includes(c))
-            && this.forbiddenChars.every(c => !word.includes(c));
+            && Object.entries(this.knownWrongPositions).every(([i, a]) => !a.includes(word[+i]))
+            && Object.entries(this.knownCounts).every(([c, n]) => word.split('').filter(x => x === c).length === n)
+            && this.knownChars.every(x => word.includes(x))
+            && this.knownWrong.every(x => !word.includes(x));
     }
 }
